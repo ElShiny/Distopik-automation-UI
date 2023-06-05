@@ -1,16 +1,22 @@
-var express = require("express");
+import express, { Express, Request, Response } from 'express';
 var circularBuffer = require("circular-buffer");
 var SPI = require('pi-spi');
 var GPIO = require('onoff').Gpio;
 var bodyParser = require('body-parser');
-var app = express();
+var app: Express = express();
 
 import {Comm, SpiState, LedRing, MottPott} from './types';
 //poterebujemo body parser middleware, 
 
-app.get('/', (req: any, res: any) => res.status(200).json({result: 'Success from Pi!'}));
-app.get('/get-state', ());
-app.post('/set-state', ());
+app.get('/', (req: Request, res: Response) => res.status(200).json({result: 'Success from Pi!'}));
+app.get('/get-state', (req: Request, res: Response) => {
+    res.status(200).json({data: Ui.devs});
+});
+app.post('/set-state', (req: Request, res: Response) => {
+    //preveri input
+    //nastavi naprave
+    //req.
+});
 
 app.listen(3000, () => {
 
@@ -95,7 +101,7 @@ async function get_devs_type(ui: Comm, buf: any){
             else if(data[ui.num_of_devs-i-1] == 0xff && devs_state[i] == SpiState.WAIT_INSTRUCTION){devs_state[i] = SpiState.WAIT_DATA}
             else if(data[ui.num_of_devs-i-1] == 0x1 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new LedRing; devs_state[i] = SpiState.END_RECIEVE}
             else if(data[ui.num_of_devs-i-1] == 0x2 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new MottPott; devs_state[i] = SpiState.END_RECIEVE}
-            else if(devs_state[i] == SpiState.WAIT_DATA){devs_state[i] = SpiState.WAIT_RECIEVE_KEY}
+            else if(devs_state[i] == SpiState.END_RECIEVE){devs_state[i] = SpiState.WAIT_RECIEVE_KEY}
         }
         console.log(devs_state);
     }
@@ -121,9 +127,26 @@ async function read_spi_int(ui: Comm, val: number, buf: any){
 }
 
 async function msg_parser(buf: any, ui: Comm){
+//    console.log(buf.size());
+
+    console.log("-------------");
     while(buf.size()){
-        console.log(buf.deq());
+        var data = buf.deq();
+        for(let i = 0; i < data.length; i++){
+
+            switch(ui.devs[i].parse_state){
+
+                case SpiState.WAIT_RECIEVE_KEY:{if(data[ui.num_of_devs-i-1] == 0xdf){ui.devs[i].parse_state = SpiState.WAIT_INSTRUCTION}; break;}
+                case SpiState.WAIT_INSTRUCTION:{ui.devs[i].instr = data[ui.num_of_devs-i-1]; ui.devs[i].parse_state = SpiState.WAIT_DATA; break;}
+                case SpiState.WAIT_DATA:{ui.devs[i].parser(data[ui.num_of_devs-i-1]);}
+                case SpiState.END_RECIEVE:{ui.devs[i].parse_state = SpiState.WAIT_RECIEVE_KEY; break;}
+            }
+        }
+        //console.log(ui.devs[0].parse_state);
     }
+//    console.log("+++++++++++++");
+    console.log(ui.devs);
+    console.log("-------------");
 }
 
 
