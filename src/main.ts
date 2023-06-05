@@ -1,4 +1,5 @@
 import express, { Express, Request, Response } from 'express';
+const cors = require('cors');
 var circularBuffer = require("circular-buffer");
 var SPI = require('pi-spi');
 var GPIO = require('onoff').Gpio;
@@ -8,8 +9,13 @@ var app: Express = express();
 import {Comm, SpiState, LedRing, MottPott} from './types';
 //poterebujemo body parser middleware, 
 
+app.use(cors({
+    origin: '*'
+}));
+
 app.get('/', (req: Request, res: Response) => res.status(200).json({result: 'Success from Pi!'}));
 app.get('/get-state', (req: Request, res: Response) => {
+    //console.log("requested state");
     res.status(200).json({data: Ui.devs});
 });
 app.post('/set-state', (req: Request, res: Response) => {

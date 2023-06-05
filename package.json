@@ -2,7 +2,9 @@
   "dependencies": {
     "body-parser": "^1.20.2",
     "circular-buffer": "^1.0.3",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
+    "nodemon": "^2.0.22",
     "onoff": "^6.0.3",
     "pi-spi": "^1.2.1",
     "spi-device": "^3.1.2"
