@@ -7,50 +7,49 @@
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
         <script src="jquery.knob.min.js"></script>
         <script>
-            $(function($) {
-                $(".knob").knob({
-
+            $(async function($) {
+                await $(".knob").knob({
+                    'change' : async function (v) { 
+                        v = Math.floor(v);
+                        console.log(Math.floor(v));
+                        await postData(Math.floor(v)); 
+                    }
                 });
             });
+        </script>
+        <script>
+            async function clock() {
+                var $s = $(".pott");
+                //console.log(20*Math.log10(await logJSONData()));
+                $s.val(await logJSONData()).trigger("change");
+                setTimeout("clock()", 10);
+            }
+            clock();
+
         </script>
     </head>
     <body>
 
-        <h1>Distopik UI</h1>
-        <button id="get" type="button" onclick="get()" >Get!</button> 
-        <button id="post" type="button" onclick="post()" >Post!</button> 
-
 
         <input type="text" value="75" class="dial" data-angleOffset="-120" data-angleArc="240">
-
+        <input type="text" value="75" class="dial" data-angleOffset="-120" data-angleArc="240">
         <script>
             $(".dial").knob({
                  'change' : function (v) { console.log(v); }
             });
         </script>
 
-        
-        <script>
-            async function clock() {
-                var $s = $(".pott");
-                console.log(20*Math.log(await logJSONData()));
-                $s.val(20*Math.log(await logJSONData())).trigger("change");
-                setTimeout("clock()", 1);
-            }
-            clock();
-        </script>
-
-        <div class="demo" style="height:420px;width:100%">
-            <div style="position:relative;width:350px;margin:auto">
-                <div style="position:absolute;left:110px;top:110px">
-                    <input class="knob pott" data-min="0" data-max="111" data-fgColor="rgb(170, 170, 0)" data-bgColor="#333" data-step=".01" data-cursor=false data-angleOffset="-150" data-angleArc="300" data-displayInput=false data-width="100" data-height="100" data-thickness=".3">
+        <div class="demo" style="height:420px;width:100%;">
+            <p>Motorised Potentiometer</p>  
+            <div style="position:relative;">
+                <div style="position:absolute;left:25px;top:25px;">
+                    <input class="knob pott" data-min="0" data-max="98" data-fgColor="rgb(170, 170, 0)" data-bgColor="#333" data-step=".01" data-cursor=false data-angleOffset="-150" data-angleArc="300" data-displayInput=false data-width="100" data-height="100" data-thickness=".3">
                 </div>
-                <div style="position:absolute;left:85px;top:85px;">
+                <div style="position:absolute;">
                     <input class="knob pos" data-min="0" data-max="100" data-fgColor="rgb(0, 0, 204)" data-angleOffset="-150" data-angleArc="300" data-width="150" data-height="150" data-thickness=".3">
                 </div>
             </div>
         </div>
-        <div style="clear:both"></div>
 
     </body>
 

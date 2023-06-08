@@ -5,10 +5,25 @@ var SPI = require('pi-spi');
 var GPIO = require('onoff').Gpio;
 var bodyParser = require('body-parser');
 var app: Express = express();
+var WebSocket = require('ws');
+import {Comm, SpiState, LedRing, MottPott, MottPottInstr, LedRingInstr} from './types';
 
-import {Comm, SpiState, LedRing, MottPott} from './types';
-//poterebujemo body parser middleware, 
+const wss = new WebSocket.Server({ port: 8080 });
 
+wss.on("connection", (ws: any) => {
+    ws.on("message", (message: any) =>{
+        try {
+            const data = JSON.parse(message);
+            console.log(data);
+        } catch (error: any) {
+            console.log(error.message);
+        }
+
+    });
+});
+
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(bodyParser.json());
 app.use(cors({
     origin: '*'
 }));
@@ -18,9 +33,16 @@ app.get('/get-state', (req: Request, res: Response) => {
     //console.log("requested state");
     res.status(200).json({data: Ui.devs});
 });
-app.post('/set-state', (req: Request, res: Response) => {
+app.post('/set-state', async (req: Request, res: Response) => {
     //preveri input
     //nastavi naprave
+
+    //console.log(typeof req.body.adc_val);
+    await send_byte(Ui, LedRingInstr.SEND_VAL, req.body.ace_val, 1);
+    await new Promise(r => setTimeout(r, 1000));
+    await res.status(200).json({result: 'Success'});
+
+
     //req.
 });
 
@@ -138,32 +160,95 @@ async function msg_parser(buf: any, ui: Comm){
     console.log("-------------");
     while(buf.size()){
         var data = buf.deq();
+        //console.log(data);
         for(let i = 0; i < data.length; i++){
 
             switch(ui.devs[i].parse_state){
 
                 case SpiState.WAIT_RECIEVE_KEY:{if(data[ui.num_of_devs-i-1] == 0xdf){ui.devs[i].parse_state = SpiState.WAIT_INSTRUCTION}; break;}
                 case SpiState.WAIT_INSTRUCTION:{ui.devs[i].instr = data[ui.num_of_devs-i-1]; ui.devs[i].parse_state = SpiState.WAIT_DATA; break;}
-                case SpiState.WAIT_DATA:{ui.devs[i].parser(data[ui.num_of_devs-i-1]);}
+                case SpiState.WAIT_DATA:{ui.devs[i].parser(data[ui.num_of_devs-i-1]);break;}
+                case SpiState.WAIT_DATA_BUFFER:{ui.devs[i].parser(data[ui.num_of_devs-i-1]);break;}
                 case SpiState.END_RECIEVE:{ui.devs[i].parse_state = SpiState.WAIT_RECIEVE_KEY; break;}
             }
         }
-        //console.log(ui.devs[0].parse_state);
+        //console.log(ui.devs[1].parse_state);
     }
 //    console.log("+++++++++++++");
     console.log(ui.devs);
     console.log("-------------");
 }
 
+async function send_byte(ui:Comm, instr: number, data: number, dev: number) {
+
+    var a = Buffer.alloc(ui.num_of_devs);
+    a[dev] = 0xcf;
+    await new Promise((resolve) => {
+        ui.spi.write(a, function(e: any){
+            if (e) console.error(e); resolve(e);
+        } );
+    });
+
+    a[dev] = instr;
+    await new Promise((resolve) => {
+        ui.spi.write(a, function(e: any){
+            if (e) console.error(e); resolve(e);
+        } );
+    });
+
+    a[dev] = data;
+    await new Promise((resolve) => {
+        ui.spi.write(a, function(e: any){
+            if (e) console.error(e); resolve(e);
+        } );
+    });
+    console.log("sent instr and data: "+instr+", "+data+", to: "+dev);
+}
+
+async function send_buffer(ui:Comm, instr: number, data: Array<number>, dev: number) {
+
+    var a = Buffer.alloc(ui.num_of_devs);
+    a[dev] = 0xcf;
+    await new Promise((resolve) => {
+        ui.spi.write(a, function(e: any){
+            if (e) console.error(e); resolve(e);
+        } );
+    });
+
+    a[dev] = instr;
+    await new Promise((resolve) => {
+        ui.spi.write(a, function(e: any){
+            if (e) console.error(e); resolve(e);
+        } );
+    });
+
+    a[dev] = data.length;
+    await new Promise((resolve) => {
+        ui.spi.write(a, function(e: any){
+            if (e) console.error(e); resolve(e);
+        } );
+    });
+
+    for(var i = 0; i<data.length; i++){
+        a[dev] = data[i];
+        await new Promise((resolve) => {
+            ui.spi.write(a, function(e: any){
+                if (e) console.error(e); resolve(e);
+            } );
+        });
+        console.log("sent instr and data: "+ instr+", "+data+", to: "+dev);
+    }
+}
 
 async function main(){
     await reset_devs(Ui);
     Ui.num_of_devs = await get_num_of_devs(Ui);
     if (Ui.num_of_devs == -1){console.error("ui connection error"); return;}
     await get_devs_type(Ui, buf);
+    await send_buffer(Ui, LedRingInstr.SET_BACK_COLOR, new Array(0,0,255), 0);
 
-    console.log("starting interrupt service");
-    Ui.interrupt.watch(async function(err: any, val: any){
+    await console.log("starting interrupt service");
+    await Ui.interrupt.watch(async function(err: any, val: any){
         await read_spi_int(Ui, val, buf);
         await msg_parser(buf, Ui);
     });

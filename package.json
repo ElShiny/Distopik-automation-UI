@@ -7,7 +7,9 @@
     "nodemon": "^2.0.22",
     "onoff": "^6.0.3",
     "pi-spi": "^1.2.1",
-    "spi-device": "^3.1.2"
+    "spi-device": "^3.1.2",
+    "websocket": "^1.0.34",
+    "ws": "^8.13.0"
   },
   "devDependencies": {
     "@tsconfig/node16": "^1.0.4",
