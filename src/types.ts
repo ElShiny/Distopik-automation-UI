@@ -41,21 +41,22 @@ export class MottPott implements MottPottT {
 var len = 100;
 function LedRingparse(this: LedRingT, data: any){
     switch(this.instr){
-        case 1:{if(this.parse_state == SpiState.WAIT_DATA){this.led_val = data; this.parse_state = SpiState.WAIT_RECIEVE_KEY} break;};
+        case 1:{if(this.parse_state == SpiState.WAIT_DATA){this.led_val = data; this.parse_state = SpiState.END_RECIEVE} break;};
 
         case 254:{
             //console.log("254 triggered");
             if(this.parse_state == SpiState.WAIT_DATA){this.parse_state = SpiState.WAIT_DATA_BUFFER; len = data; console.log(len);break;}
             if(this.parse_state == SpiState.WAIT_DATA_BUFFER){console.log("len: "+len+"data: "+data);len--;break;}
-            if(len <= 0){this.parse_state = SpiState.WAIT_RECIEVE_KEY; break;}
-            
+            if(len <= 0){this.parse_state = SpiState.END_RECIEVE; break;}            
         };
+        default:{this.parse_state = SpiState.WAIT_RECIEVE_KEY};
     }
 };
 
 function MottPottparse(this: MottPottT, data: any){
     switch(this.instr){
         case 1:{if(this.parse_state == SpiState.WAIT_DATA){this.adc_val = data; this.parse_state = SpiState.END_RECIEVE}};
+        default:{this.parse_state = SpiState.WAIT_RECIEVE_KEY};
     }
 }
 

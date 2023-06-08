@@ -8,20 +8,6 @@ var app: Express = express();
 var WebSocket = require('ws');
 import {Comm, SpiState, LedRing, MottPott, MottPottInstr, LedRingInstr} from './types';
 
-const wss = new WebSocket.Server({ port: 8080 });
-
-wss.on("connection", (ws: any) => {
-    ws.on("message", (message: any) =>{
-        try {
-            const data = JSON.parse(message);
-            console.log(data);
-        } catch (error: any) {
-            console.log(error.message);
-        }
-
-    });
-});
-
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(cors({
@@ -38,8 +24,8 @@ app.post('/set-state', async (req: Request, res: Response) => {
     //nastavi naprave
 
     //console.log(typeof req.body.adc_val);
-    await send_byte(Ui, LedRingInstr.SEND_VAL, req.body.ace_val, 1);
-    await new Promise(r => setTimeout(r, 1000));
+    await send_byte(Ui, LedRingInstr.SEND_VAL, req.body.adc_val, 0);
+    //await new Promise(r => setTimeout(r, 1000));
     await res.status(200).json({result: 'Success'});
 
 
@@ -158,8 +144,14 @@ async function msg_parser(buf: any, ui: Comm){
 //    console.log(buf.size());
 
     console.log("-------------");
-    while(buf.size()){
-        var data = buf.deq();
+    var size = buf.size()+2;
+    while(size){
+        try {
+            var data = buf.deq();
+        } catch (error) {
+            console.log("buf empty");
+        }
+
         //console.log(data);
         for(let i = 0; i < data.length; i++){
 
@@ -173,6 +165,7 @@ async function msg_parser(buf: any, ui: Comm){
             }
         }
         //console.log(ui.devs[1].parse_state);
+        size--;
     }
 //    console.log("+++++++++++++");
     console.log(ui.devs);
