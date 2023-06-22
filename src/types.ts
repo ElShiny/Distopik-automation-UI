@@ -38,8 +38,43 @@ export class MottPott implements MottPottT {
     parse_state = SpiState.WAIT_RECIEVE_KEY;
     parser = MottPottparse;
 }
-var len = 100;
+
+export type UnirelPotMiniT = {
+    pot1: number,
+    pot2: number,
+
+    instr: number,
+    parse_state: SpiState,
+   // parser: Function,
+};
+export class UnirelPotMini implements UnirelPotMiniT {
+    pot1 = 0;
+    pot2 = 0;
+
+    instr = 0;
+    parse_state = SpiState.WAIT_RECIEVE_KEY;
+    //parser = MottPottparse;
+}
+
+export type UnirelSwMiniT = {
+    rail1: number,
+    rail2: number,
+
+    instr: number,
+    parse_state: SpiState,
+   // parser: Function,
+};
+export class UnirelSwMini implements UnirelSwMiniT {
+    rail1 = 0;
+    rail2 = 0;
+
+    instr = 0;
+    parse_state = SpiState.WAIT_RECIEVE_KEY;
+    //parser = MottPottparse;
+}
+
 function LedRingparse(this: LedRingT, data: any){
+    var len = 0;
     switch(this.instr){
         case 1:{if(this.parse_state == SpiState.WAIT_DATA){this.led_val = data; this.parse_state = SpiState.END_RECIEVE} break;};
 
@@ -87,6 +122,11 @@ export enum LedRingInstr {
 
 } 
 export enum MottPottInstr {
+    RECIEVE_VAL = 1,
+    SEND_VAL,
+} 
+
+export enum UnirelPotMiniInstr {
     RECIEVE_VAL = 1,
     SEND_VAL,
 } 

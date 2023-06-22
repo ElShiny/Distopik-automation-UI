@@ -6,7 +6,7 @@ var GPIO = require('onoff').Gpio;
 var bodyParser = require('body-parser');
 var app: Express = express();
 var WebSocket = require('ws');
-import {Comm, SpiState, LedRing, MottPott, MottPottInstr, LedRingInstr} from './types';
+import {Comm, SpiState, LedRing, MottPott, MottPottInstr, LedRingInstr, UnirelPotMini, UnirelSwMini} from './types';
 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
@@ -24,7 +24,7 @@ app.post('/set-state', async (req: Request, res: Response) => {
     //nastavi naprave
 
     //console.log(typeof req.body.adc_val);
-    await send_byte(Ui, LedRingInstr.SEND_VAL, req.body.adc_val, 0);
+    await send_byte(Akt, LedRingInstr.SEND_VAL, req.body.adc_val, 0);
     //await new Promise(r => setTimeout(r, 1000));
     await res.status(200).json({result: 'Success'});
 
@@ -39,6 +39,7 @@ app.listen(3000, () => {
 })
 
 var buf = circularBuffer(300);
+var buf2 = circularBuffer(300);
 
 const Ui: Comm = {
     spi: SPI.initialize("/dev/spidev0.0"),
@@ -58,6 +59,7 @@ const Akt: Comm = {
 
 
 Ui.spi.clockSpeed(500000);
+Akt.spi.clockSpeed(500000);
 
 
 
@@ -65,7 +67,7 @@ Ui.spi.clockSpeed(500000);
 // e.g. jumper MOSI [BCM 10, physical pin 19] to MISO [BCM 9, physical pin 21]
 
 
-async function get_num_of_devs(ui: typeof Ui){
+async function get_num_of_devs(ui: Comm){
     var dout = Buffer.alloc(50);
     var din = Buffer.alloc(50);
     dout[0] = 0xab;
@@ -115,6 +117,8 @@ async function get_devs_type(ui: Comm, buf: any){
             else if(data[ui.num_of_devs-i-1] == 0xff && devs_state[i] == SpiState.WAIT_INSTRUCTION){devs_state[i] = SpiState.WAIT_DATA}
             else if(data[ui.num_of_devs-i-1] == 0x1 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new LedRing; devs_state[i] = SpiState.END_RECIEVE}
             else if(data[ui.num_of_devs-i-1] == 0x2 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new MottPott; devs_state[i] = SpiState.END_RECIEVE}
+            else if(data[ui.num_of_devs-i-1] == 100 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new UnirelPotMini; devs_state[i] = SpiState.END_RECIEVE}
+            else if(data[ui.num_of_devs-i-1] == 101 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new UnirelSwMini; devs_state[i] = SpiState.END_RECIEVE}
             else if(devs_state[i] == SpiState.END_RECIEVE){devs_state[i] = SpiState.WAIT_RECIEVE_KEY}
         }
         console.log(devs_state);
@@ -143,13 +147,14 @@ async function read_spi_int(ui: Comm, val: number, buf: any){
 async function msg_parser(buf: any, ui: Comm){
 //    console.log(buf.size());
 
-    console.log("-------------");
+    //console.log("-------------");
     var size = buf.size()+2;
     while(size){
         try {
             var data = buf.deq();
         } catch (error) {
-            console.log("buf empty");
+            //console.log("buf empty");
+            var data: any = Buffer.alloc(ui.num_of_devs);
         }
 
         //console.log(data);
@@ -168,27 +173,28 @@ async function msg_parser(buf: any, ui: Comm){
         size--;
     }
 //    console.log("+++++++++++++");
-    console.log(ui.devs);
-    console.log("-------------");
+    //console.log(ui.devs);
+    //console.log("-------------");
 }
 
 async function send_byte(ui:Comm, instr: number, data: number, dev: number) {
 
     var a = Buffer.alloc(ui.num_of_devs);
     a[dev] = 0xcf;
+    while(ui.interrupt.readSync() == 0)console.log("waiting for data1");
     await new Promise((resolve) => {
         ui.spi.write(a, function(e: any){
             if (e) console.error(e); resolve(e);
         } );
     });
-
+    while(ui.interrupt.readSync() == 0)console.log("waiting for data2");
     a[dev] = instr;
     await new Promise((resolve) => {
         ui.spi.write(a, function(e: any){
             if (e) console.error(e); resolve(e);
         } );
     });
-
+    while(ui.interrupt.readSync() == 0)console.log("waiting for data3");
     a[dev] = data;
     await new Promise((resolve) => {
         ui.spi.write(a, function(e: any){
@@ -236,15 +242,27 @@ async function send_buffer(ui:Comm, instr: number, data: Array<number>, dev: num
 async function main(){
     await reset_devs(Ui);
     Ui.num_of_devs = await get_num_of_devs(Ui);
-    if (Ui.num_of_devs == -1){console.error("ui connection error"); return;}
-    await get_devs_type(Ui, buf);
-    await send_buffer(Ui, LedRingInstr.SET_BACK_COLOR, new Array(0,0,255), 0);
+    if (Ui.num_of_devs == -1){console.error("ui connection error");}
+    else{
+        await get_devs_type(Ui, buf);
+        await send_buffer(Ui, LedRingInstr.SET_BACK_COLOR, new Array(0,0,255), 0);
+        await console.log("starting interrupt service");
+        await Ui.interrupt.watch(async function(err: any, val: any){
+            await read_spi_int(Ui, val, buf);
+            await msg_parser(buf, Ui);
+        });
+    }
 
-    await console.log("starting interrupt service");
-    await Ui.interrupt.watch(async function(err: any, val: any){
-        await read_spi_int(Ui, val, buf);
-        await msg_parser(buf, Ui);
-    });
+    await reset_devs(Akt);
+    Akt.num_of_devs = await get_num_of_devs(Akt);
+    if (Akt.num_of_devs == -1){console.error("Aktuator connection error");}
+    else{
+        await get_devs_type(Akt, buf2);
+        await Ui.interrupt.watch(async function(err: any, val: any){
+            await read_spi_int(Akt, val, buf);
+            await msg_parser(buf, Akt);
+        });
+    }
    // get_devs_type(ui_length);
 }
 
