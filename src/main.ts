@@ -24,7 +24,9 @@ app.post('/set-state', async (req: Request, res: Response) => {
     //nastavi naprave
 
     //console.log(typeof req.body.adc_val);
+    //await send_byte(Ui, LedRingInstr.SEND_VAL, req.body.);
     await send_byte(Akt, LedRingInstr.SEND_VAL, req.body.adc_val, 0);
+    await send_byte(Ui, LedRingInstr.SEND_VAL, req.body.adc_val, 1);
     //await new Promise(r => setTimeout(r, 1000));
     await res.status(200).json({result: 'Success'});
 
@@ -58,8 +60,8 @@ const Akt: Comm = {
 };
 
 
-Ui.spi.clockSpeed(500000);
-Akt.spi.clockSpeed(500000);
+Ui.spi.clockSpeed(1000000);
+Akt.spi.clockSpeed(1000000);
 
 
 
@@ -115,10 +117,10 @@ async function get_devs_type(ui: Comm, buf: any){
         for(let i = 0; i < data.length; i++){
             if(data[ui.num_of_devs-i-1] == 0xdf && devs_state[i] == SpiState.WAIT_RECIEVE_KEY){devs_state[i] = SpiState.WAIT_INSTRUCTION}
             else if(data[ui.num_of_devs-i-1] == 0xff && devs_state[i] == SpiState.WAIT_INSTRUCTION){devs_state[i] = SpiState.WAIT_DATA}
-            else if(data[ui.num_of_devs-i-1] == 0x1 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new LedRing; devs_state[i] = SpiState.END_RECIEVE}
-            else if(data[ui.num_of_devs-i-1] == 0x2 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new MottPott; devs_state[i] = SpiState.END_RECIEVE}
-            else if(data[ui.num_of_devs-i-1] == 100 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new UnirelPotMini; devs_state[i] = SpiState.END_RECIEVE}
-            else if(data[ui.num_of_devs-i-1] == 101 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new UnirelSwMini; devs_state[i] = SpiState.END_RECIEVE}
+            else if(data[ui.num_of_devs-i-1] == 0x1 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new LedRing; ui.devs[ui.devs.length -1].id =  ui.devs.length -1; devs_state[i] = SpiState.END_RECIEVE}
+            else if(data[ui.num_of_devs-i-1] == 0x2 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new MottPott;  ui.devs[ui.devs.length -1].id =  ui.devs.length -1; devs_state[i] = SpiState.END_RECIEVE}
+            else if(data[ui.num_of_devs-i-1] == 100 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new UnirelPotMini;  ui.devs[ui.devs.length -1].id =  ui.devs.length -1; devs_state[i] = SpiState.END_RECIEVE}
+            else if(data[ui.num_of_devs-i-1] == 101 && devs_state[i] == SpiState.WAIT_DATA){ui.devs[i] = new UnirelSwMini;  ui.devs[ui.devs.length -1].id =  ui.devs.length -1; devs_state[i] = SpiState.END_RECIEVE}
             else if(devs_state[i] == SpiState.END_RECIEVE){devs_state[i] = SpiState.WAIT_RECIEVE_KEY}
         }
         console.log(devs_state);
@@ -173,7 +175,10 @@ async function msg_parser(buf: any, ui: Comm){
         size--;
     }
 //    console.log("+++++++++++++");
-    //console.log(ui.devs);
+    console.log(ui.devs);
+    //await send_byte(Akt, 2, ui.devs[0].led_val, 0);
+
+
     //console.log("-------------");
 }
 
@@ -258,12 +263,12 @@ async function main(){
     if (Akt.num_of_devs == -1){console.error("Aktuator connection error");}
     else{
         await get_devs_type(Akt, buf2);
-        await Ui.interrupt.watch(async function(err: any, val: any){
-            await read_spi_int(Akt, val, buf);
-            await msg_parser(buf, Akt);
+        await Akt.interrupt.watch(async function(err: any, val: any){
+            await read_spi_int(Akt, val, buf2);
+            await msg_parser(buf2, Akt);
         });
     }
-   // get_devs_type(ui_length);
+   //get_devs_type(ui_length);
 }
 
 

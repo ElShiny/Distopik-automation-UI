@@ -8,6 +8,7 @@ export interface Comm {
 }
 
 export type LedRingT = {
+    id: number,
     led_val: number,
 
     instr: number,
@@ -15,6 +16,7 @@ export type LedRingT = {
     parser:Function,
 };
 export class LedRing implements LedRingT {
+    id = 0;
     led_val = 0;
 
     instr = 0;
@@ -23,6 +25,7 @@ export class LedRing implements LedRingT {
 }
 
 export type MottPottT = {
+    id: number,
     adc_val: number,
     user_val: number,
 
@@ -31,6 +34,7 @@ export type MottPottT = {
     parser: Function,
 };
 export class MottPott implements MottPottT {
+    id = 0;
     adc_val = 0;
     user_val = 0;
 
@@ -40,6 +44,7 @@ export class MottPott implements MottPottT {
 }
 
 export type UnirelPotMiniT = {
+    id: number,
     pot1: number,
     pot2: number,
 
@@ -48,6 +53,7 @@ export type UnirelPotMiniT = {
    // parser: Function,
 };
 export class UnirelPotMini implements UnirelPotMiniT {
+    id = 0;
     pot1 = 0;
     pot2 = 0;
 
@@ -57,6 +63,7 @@ export class UnirelPotMini implements UnirelPotMiniT {
 }
 
 export type UnirelSwMiniT = {
+    id: number,
     rail1: number,
     rail2: number,
 
@@ -65,6 +72,7 @@ export type UnirelSwMiniT = {
    // parser: Function,
 };
 export class UnirelSwMini implements UnirelSwMiniT {
+    id = 0;
     rail1 = 0;
     rail2 = 0;
 
@@ -88,9 +96,25 @@ function LedRingparse(this: LedRingT, data: any){
     }
 };
 
-function MottPottparse(this: MottPottT, data: any){
+var mott_buf_len: number = 0;
+var val_upper: number, val_lower: number = 0;
+function MottPottparse(this: MottPottT, data: number){
     switch(this.instr){
-        case 1:{if(this.parse_state == SpiState.WAIT_DATA){this.adc_val = data; this.parse_state = SpiState.END_RECIEVE}};
+        //case 1:{if(this.parse_state == SpiState.WAIT_DATA){this.adc_val = data; this.parse_state = SpiState.END_RECIEVE}};
+        case 1:{
+            //console.log("254 triggered");
+            if(this.parse_state == SpiState.WAIT_DATA){this.parse_state = SpiState.WAIT_DATA_BUFFER; mott_buf_len = data; console.log("Mott Buf Len: "+mott_buf_len);break;}
+            if(mott_buf_len <= 0){this.adc_val = val_upper<<8 | val_lower; this.parse_state = SpiState.END_RECIEVE; break;}    
+            if(this.parse_state == SpiState.WAIT_DATA_BUFFER)
+            {
+                console.log("len: "+mott_buf_len+"data: "+data);
+                if(mott_buf_len == 2){val_lower = data}
+                if(mott_buf_len == 1){val_upper = data}
+                mott_buf_len--;
+                break;
+            }
+        
+        };
         default:{this.parse_state = SpiState.WAIT_RECIEVE_KEY};
     }
 }
