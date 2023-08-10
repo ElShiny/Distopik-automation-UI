@@ -9,36 +9,40 @@ export interface Comm {
 
 export type LedRingT = {
     id: number,
-    led_val: number,
+    value: number,
 
     instr: number,
     parse_state: SpiState,
+    data_pos: number,
     parser:Function,
 };
 export class LedRing implements LedRingT {
     id = 0;
-    led_val = 0;
+    value = 0;
 
     instr = 0;
     parse_state = SpiState.WAIT_RECIEVE_KEY;
+    data_pos = 0;
     parser = LedRingparse;
 }
 
 export type MottPottT = {
     id: number,
-    adc_val: number,
-    user_val: number,
+    value: number,
+    user_value: number,
 
     instr: number,
+    data_pos: number,
     parse_state: SpiState,
     parser: Function,
 };
 export class MottPott implements MottPottT {
     id = 0;
-    adc_val = 0;
-    user_val = 0;
+    value = 0;
+    user_value = 0;
 
     instr = 0;
+    data_pos = 0;
     parse_state = SpiState.WAIT_RECIEVE_KEY;
     parser = MottPottparse;
 }
@@ -84,37 +88,29 @@ export class UnirelSwMini implements UnirelSwMiniT {
 function LedRingparse(this: LedRingT, data: any){
     var len = 0;
     switch(this.instr){
-        case 1:{if(this.parse_state == SpiState.WAIT_DATA){this.led_val = data; this.parse_state = SpiState.END_RECIEVE} break;};
+        case 1:{if(this.parse_state == SpiState.WAIT_DATA){
+            if(this.data_pos == 0){this.value = 0; this.value = data; this.data_pos = 1; break;}
+            if(this.data_pos == 1){this.data_pos = 0;this.value |= data<<8; this.parse_state = SpiState.WAIT_RECIEVE_KEY; break;}
+        } break;};
 
-        case 254:{
-            //console.log("254 triggered");
-            if(this.parse_state == SpiState.WAIT_DATA){this.parse_state = SpiState.WAIT_DATA_BUFFER; len = data; console.log(len);break;}
-            if(this.parse_state == SpiState.WAIT_DATA_BUFFER){console.log("len: "+len+"data: "+data);len--;break;}
-            if(len <= 0){this.parse_state = SpiState.END_RECIEVE; break;}            
-        };
+//        case 254:{
+//            //console.log("254 triggered");
+//            if(this.parse_state == SpiState.WAIT_DATA){this.parse_state = SpiState.WAIT_DATA_BUFFER; len = data; console.log(len);break;}
+//            if(this.parse_state == SpiState.WAIT_DATA_BUFFER){/*console.log("len: "+len+"data: "+data);*/len--;break;}
+//            if(len <= 0){this.parse_state = SpiState.WAIT_RECIEVE_KEY; break;}            
+//        };
         default:{this.parse_state = SpiState.WAIT_RECIEVE_KEY};
     }
 };
 
-var mott_buf_len: number = 0;
-var val_upper: number, val_lower: number = 0;
+
 function MottPottparse(this: MottPottT, data: number){
     switch(this.instr){
         //case 1:{if(this.parse_state == SpiState.WAIT_DATA){this.adc_val = data; this.parse_state = SpiState.END_RECIEVE}};
-        case 1:{
-            //console.log("254 triggered");
-            if(this.parse_state == SpiState.WAIT_DATA){this.parse_state = SpiState.WAIT_DATA_BUFFER; mott_buf_len = data; console.log("Mott Buf Len: "+mott_buf_len);break;}
-            if(mott_buf_len <= 0){this.adc_val = val_upper<<8 | val_lower; this.parse_state = SpiState.END_RECIEVE; break;}    
-            if(this.parse_state == SpiState.WAIT_DATA_BUFFER)
-            {
-                console.log("len: "+mott_buf_len+"data: "+data);
-                if(mott_buf_len == 2){val_lower = data}
-                if(mott_buf_len == 1){val_upper = data}
-                mott_buf_len--;
-                break;
-            }
-        
-        };
+        case 1:{if(this.parse_state == SpiState.WAIT_DATA){
+            if(this.data_pos == 0){this.value = 0; this.value = data; this.data_pos = 1; break;}
+            if(this.data_pos == 1){this.data_pos = 0;this.value |= data<<8; this.parse_state = SpiState.WAIT_RECIEVE_KEY; break;}
+        } break;};
         default:{this.parse_state = SpiState.WAIT_RECIEVE_KEY};
     }
 }
@@ -139,18 +135,27 @@ export enum LedRingInstr {
     SET_STOP_LED,
     SET_FRONT_COLOR,
     SET_BACK_COLOR,
-    RESET_DEV = 252,
+    RESET_DEV = 100,
     READ_BUF_LENGTH,
     READ_BUF,
-    READ_DEV_TYPE,
+    READ_DEV_TYPE = 127,
 
 } 
+
 export enum MottPottInstr {
     RECIEVE_VAL = 1,
     SEND_VAL,
+    RESET_DEV = 100,
+    READ_BUF_LENGTH,
+    READ_BUF,
+    READ_DEV_TYPE = 127,
 } 
 
 export enum UnirelPotMiniInstr {
     RECIEVE_VAL = 1,
     SEND_VAL,
+    RESET_DEV = 100,
+    READ_BUF_LENGTH,
+    READ_BUF,
+    READ_DEV_TYPE = 127,
 } 
